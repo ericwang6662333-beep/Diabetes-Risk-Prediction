@@ -2,9 +2,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
 
 # ---------------------------------------------------------
 # 1. Data Preprocessing
@@ -13,14 +16,12 @@ from sklearn.decomposition import PCA
 file_path = 'CDC Diabetes Dataset.csv'
 df = pd.read_csv(file_path)
 
-# Data Cleaning: Remove Prediabetes (1) and merge Diabetes (2) into Binary (1)
 if 'Diabetes_012' in df.columns:
     print("Preprocessing: Converting 3-class target to Binary...")
     df = df[df['Diabetes_012'] != 1]
     df['Diabetes_012'] = df['Diabetes_012'].replace({2: 1})
     df.rename(columns={'Diabetes_012': 'Diabetes_binary'}, inplace=True)
 
-# Feature Scaling
 X = df.drop('Diabetes_binary', axis=1)
 y = df['Diabetes_binary']
 scaler = StandardScaler()
@@ -30,33 +31,24 @@ X_scaled = scaler.fit_transform(X)
 # 2. Unsupervised Learning: Clustering
 # ---------------------------------------------------------
 print("\n--- Phase 1: Clustering Analysis ---")
-
-# Elbow Method to find optimal K (Figure 1)
-wcss = []
-K_range = range(1, 11)
-for i in K_range:
-    kmeans = KMeans(n_clusters=i, init='k-means++', random_state=42)
-    kmeans.fit(X_scaled)
-    wcss.append(kmeans.inertia_)
-
-plt.figure(figsize=(8, 5))
-plt.plot(K_range, wcss, marker='o')
-plt.title('Figure 1: Elbow Method for Optimal K')
-plt.xlabel('Number of Clusters')
-plt.ylabel('WCSS')
-plt.show()
-
-# Apply K-Means with K=3
+# (Elbow method code omitted for brevity in this commit, assuming K=3 is chosen)
 kmeans = KMeans(n_clusters=3, init='k-means++', random_state=42)
 clusters = kmeans.fit_predict(X_scaled)
 
-# Visualize Clusters using PCA with Jitter (Figure 2)
-pca = PCA(n_components=2)
-X_pca = pca.fit_transform(X_scaled)
-# Add slight noise (jitter) to visualize overlapping points
-X_pca_jitter = X_pca + np.random.normal(0, 0.5, size=X_pca.shape)
+# ---------------------------------------------------------
+# 3. Supervised Learning: Baseline Classification
+# ---------------------------------------------------------
+print("\n--- Phase 2: Classification (Baseline) ---")
 
-plt.figure(figsize=(8, 6))
-sns.scatterplot(x=X_pca_jitter[:, 0], y=X_pca_jitter[:, 1], hue=clusters, palette='viridis', alpha=0.1, s=10)
-plt.title('Figure 2: Cluster Visualization (PCA)')
-plt.show()
+# Split Data (80% Train, 20% Test)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
+
+print(f"Original Training Count: {np.bincount(y_train)}")
+
+# Train Random Forest on IMBALANCED data (Baseline)
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+
+# Evaluation: Standard Threshold (0.5)
+print("\n[Result: Baseline Random Forest]")
+print(classification_report(y_test, rf_model.predict(X_test)))
